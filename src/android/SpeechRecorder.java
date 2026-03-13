@@ -34,8 +34,10 @@ public class SpeechRecorder extends CordovaPlugin {
     private int sampleRate = 16000;
     private int bufferSize;
     private int lastSecondsToKeep = 0;
+
     private Handler audioTimeoutHandler = new Handler(Looper.getMainLooper());
     private Runnable audioTimeoutRunnable;
+
     private Activity activity;
     private AudioManager audioManager;
 
@@ -73,6 +75,7 @@ public class SpeechRecorder extends CordovaPlugin {
             return;
         }
 
+        // --- Bluetooth SCO Routing Activation ---
         if (audioManager.isBluetoothScoAvailableOffCall()) {
             audioManager.startBluetoothSco();
             audioManager.setBluetoothScoOn(true);
@@ -82,16 +85,31 @@ public class SpeechRecorder extends CordovaPlugin {
         cordova.getThreadPool().execute(() -> {
             try {
                 recordFile = new File(activity.getCacheDir(), "voicerec_raw.pcm");
-                audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION, sampleRate, AudioFormat.CHANNEL_IN_MONO, AudioFormat.ENCODING_PCM_16BIT, bufferSize);
+                if (recordFile.exists()) recordFile.delete();
+
+                audioRecord = new AudioRecord(MediaRecorder.AudioSource.VOICE_RECOGNITION,
+                        sampleRate,
+                        AudioFormat.CHANNEL_IN_MONO,
+                        AudioFormat.ENCODING_PCM_16BIT,
+                        bufferSize);
+
                 audioRecord.startRecording();
                 isRecordingAudio = true;
+
                 new Thread(this::writePCMToFile).start();
+
                 audioTimeoutRunnable = () -> stopAudioRecording(true, callbackContext);
                 audioTimeoutHandler.postDelayed(audioTimeoutRunnable, durationMs);
+
                 JSONObject res = new JSONObject();
                 res.put("status", "recording_audio");
-                callbackContext.sendPluginResult(new PluginResult(PluginResult.Status.OK, res));
-            } catch (Exception e) { callbackContext.error(e.getMessage()); }
+                PluginResult pr = new PluginResult(PluginResult.Status.OK, res);
+                pr.setKeepCallback(true);
+                callbackContext.sendPluginResult(pr);
+            } catch (Exception e) {
+                Log.e(LOG_TAG, "Recording Error", e);
+                callbackContext.error(e.getMessage());
+            }
         });
     }
 
@@ -102,27 +120,34 @@ public class SpeechRecorder extends CordovaPlugin {
                 int read = audioRecord.read(data, 0, bufferSize);
                 if (read > 0) os.write(data, 0, read);
             }
-        } catch (IOException e) { e.printStackTrace(); }
+        } catch (IOException e) { Log.e(LOG_TAG, "IO Error", e); }
     }
 
     private void stopAudioRecording(boolean sendResult, CallbackContext callbackContext) {
         audioTimeoutHandler.removeCallbacks(audioTimeoutRunnable);
         isRecordingAudio = false;
+
         if (audioRecord != null) {
-            audioRecord.stop();
-            audioRecord.release();
+            try {
+                audioRecord.stop();
+                audioRecord.release();
+            } catch (Exception e) { Log.e(LOG_TAG, "Release Error", e); }
             audioRecord = null;
         }
+
+        // --- Bluetooth SCO Routing Deactivation ---
         if (audioManager.isBluetoothScoOn()) {
             audioManager.stopBluetoothSco();
             audioManager.setBluetoothScoOn(false);
             audioManager.setMode(AudioManager.MODE_NORMAL);
         }
+
         if (sendResult && callbackContext != null) {
             File wavFile = new File(activity.getCacheDir(), "final_voicerec.wav");
             saveAsWav(recordFile, wavFile);
             try {
                 JSONObject res = new JSONObject();
+                res.put("uri", "file://" + wavFile.getAbsolutePath());
                 res.put("base64", getBase64(wavFile));
                 callbackContext.success(res);
             } catch (Exception e) { callbackContext.error(e.getMessage()); }
@@ -138,7 +163,7 @@ public class SpeechRecorder extends CordovaPlugin {
             byte[] buf = new byte[bufferSize];
             int r;
             while ((r = in.read(buf)) != -1) out.write(buf, 0, r);
-        } catch (IOException e) { e.printStackTrace(); }
+        } catch (IOException e) { Log.e(LOG_TAG, "WAV Save Error", e); }
     }
 
     private byte[] getWavHeader(long len) {
@@ -156,7 +181,10 @@ public class SpeechRecorder extends CordovaPlugin {
 
     private String getBase64(File f) throws IOException {
         byte[] b = new byte[(int) f.length()];
-        try (FileInputStream fis = new FileInputStream(f)) { fis.read(b); }
+        try (FileInputStream fis = new FileInputStream(f)) {
+            int r = fis.read(b);
+            if (r != b.length) Log.w(LOG_TAG, "Read size mismatch");
+        }
         return android.util.Base64.encodeToString(b, android.util.Base64.NO_WRAP);
     }
 }
