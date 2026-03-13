@@ -3,15 +3,23 @@
     <name>benkesmith-speech-recorder</name>
     <description>A Cordova plugin that records WAV audio for speech recognition.</description>
     <license>Apache 2.0</license>
-	<keywords>cordova,audio,recorder,speech,recognition</keywords>
+    <keywords>cordova,audio,recorder,speech,recognition</keywords>
     
-	<js-module name="SpeechRecorder" src="www/SpeechRecorder.js">
+    <js-module name="SpeechRecorder" src="www/SpeechRecorder.js">
         <clobbers target="SpeechRecorder" />
     </js-module>
 
     <platform name="android">
+        <config-file target="res/xml/config.xml" parent="/*">
+            <feature name="SpeechRecorder">
+                <param name="android-package" value="com.benkesmith.speechrecorder.SpeechRecorder" />
+            </feature>
+        </config-file>
+
         <config-file target="AndroidManifest.xml" parent="/*">
             <uses-permission android:name="android.permission.RECORD_AUDIO"/>
+            <uses-permission android:name="android.permission.MODIFY_AUDIO_SETTINGS" />
+            <uses-permission android:name="android.permission.BLUETOOTH_CONNECT" />
         </config-file>
 
         <source-file
@@ -25,7 +33,7 @@
                 <param name="ios-package" value="SpeechRecorder" />
             </feature>
         </config-file>
-		<source-file src="src/ios/SpeechRecorder.h" />
-		<source-file src="src/ios/SpeechRecorder.m" />
+        <source-file src="src/ios/SpeechRecorder.h" />
+        <source-file src="src/ios/SpeechRecorder.m" />
     </platform>
 </plugin>
