@@ -1,0 +1,32 @@
+{
+  "name": "benkesmith-speech-recorder",
+  "version": "1.0.0",
+  "description": "A Cordova plugin that records WAV audio for speech recognition.",
+  "cordova": {
+    "id": "com.benkesmith.speechrecorder",
+    "platforms": [
+      "android",
+      "ios"
+    ]
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ragcsalo/benkesmith-speech-recorder.git"
+  },
+  "keywords": [
+    "cordova",
+    "audio",
+    "speech",
+    "recorder",
+    "recognition",
+    "plugin"
+  ],
+  "author": "Benke Smith <benke.smith@gmail.com>",
+  "license": "Apache-2.0",
+  "engines": [
+    {
+      "name": "cordova",
+      "version": ">=6.0.0"
+    }
+  ]
+}
